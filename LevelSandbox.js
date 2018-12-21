@@ -21,7 +21,6 @@ class LevelSandbox {
                     console.log('Not found!', err);
                     reject(err);
                 } else {
-                    console.log('Value = ' + value);
                     resolve(value);
                 }
             })
@@ -38,7 +37,7 @@ class LevelSandbox {
                     console.log('Block ' + key + ' submission failed', err);
                     reject(err);
                 } else {
-                    resolve();
+                    resolve(value);
                 }
             })
         });
@@ -56,7 +55,6 @@ class LevelSandbox {
                 console.log('Unable to read data stream!', err)
                 reject(err);
             }).on('close', function() {
-                console.log('Block Count ' + i);
                 resolve(i)
             });
         });

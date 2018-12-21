@@ -19,31 +19,119 @@ class Blockchain {
     // will not create the genesis block
     generateGenesisBlock(){
         // Add your code here
+        let self = this;
+        self.bd.getBlocksCount().then((height) => {
+           if(height === 0) {
+               let genesisBlock = new Block.Block("First block in the chain - Genesis block");
+               genesisBlock.height = 0;
+               genesisBlock.time = new Date().getTime().toString().slice(0,-3);
+               genesisBlock.previousBlockHash = "";
+               genesisBlock.hash = SHA256(JSON.stringify(genesisBlock)).toString();
+               self.bd.addLevelDBData(genesisBlock.height, JSON.stringify(genesisBlock)).then(() => {
+                   console.log("Genesis block generated.");
+               }).catch((err) => { reject(err); });
+           }
+        });
     }
 
     // Get block height, it is auxiliar method that return the height of the blockchain
-    getBlockHeight() {
+    async getBlockHeight() {
         // Add your code here
+        return this.bd.getBlocksCount();
     }
 
     // Add new block
     addBlock(block) {
         // Add your code here
+        let self = this;
+        return new Promise(function(resolve, reject) {
+            self.getBlockHeight().then((height) => {
+                // Block height
+                block.height = height;
+
+                // UTC timestamp
+                block.time = new Date().getTime().toString().slice(0,-3);
+
+                self.getBlock(height - 1).then((previousBlock) => {
+                    // previous block hash
+                    block.previousBlockHash = previousBlock.hash;
+
+                    // Block hash with SHA256 using newBlock and converting to a string
+                    block.hash = SHA256(JSON.stringify(block)).toString();
+
+                    // Adding block object to chain
+                    self.bd.addLevelDBData(block.height, JSON.stringify(block)).then(()  => {
+                        resolve(block);
+                    });
+                });
+
+            }).catch((err) => { reject(err); });
+        });
     }
 
     // Get Block By Height
-    getBlock(height) {
+    async getBlock(height) {
         // Add your code here
+        let self = this;
+        return new Promise(function (resolve, reject) {
+            self.bd.getLevelDBData(height).then((block) => {
+                resolve(JSON.parse(block));
+            });
+        });
     }
 
     // Validate if Block is being tampered by Block Height
     validateBlock(height) {
         // Add your code here
+        let self = this;
+        return new Promise(function (resolve, reject) {
+            // get block object
+            self.getBlock(height).then((block) => {
+                // get block hash
+                let blockHash = block.hash;
+
+                // remove block hash to test block integrity
+                block.hash = '';
+
+                // generate block hash
+                let validBlockHash = SHA256(JSON.stringify(block)).toString();
+
+                // Compare
+                if (blockHash===validBlockHash) {
+                    resolve(true);
+                } else {
+                    resolve(false);
+                }
+            });
+        });
     }
 
     // Validate Blockchain
-    validateChain() {
+    async validateChain() {
         // Add your code here
+        let self = this;
+        let errorLog = [];
+
+        let height = await self.getBlockHeight();
+        for(var idx = 0; idx < height - 1; idx++) {
+            let block = await self.getBlock(idx);
+            let previousBlock = await self.getBlock(idx+1);
+
+            if(await self.validateBlock(idx)) {
+                let blockHash = block.hash;
+                let previousBlockHash = previousBlock.previousBlockHash;
+
+                if (blockHash!==previousBlockHash) {
+                    errorLog.push(idx);
+                }
+            } else {
+                errorLog.push(idx);
+            }
+        }
+
+        return new Promise(function(resolve, reject){
+            resolve(errorLog);
+        });
     }
 
     // Utility Method to Tamper a Block for Test Validation
