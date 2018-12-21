@@ -22,14 +22,10 @@ class Blockchain {
         let self = this;
         self.bd.getBlocksCount().then((height) => {
            if(height === 0) {
-               let genesisBlock = new Block.Block("First block in the chain - Genesis block");
-               genesisBlock.height = 0;
-               genesisBlock.time = new Date().getTime().toString().slice(0,-3);
-               genesisBlock.previousBlockHash = "";
-               genesisBlock.hash = SHA256(JSON.stringify(genesisBlock)).toString();
-               self.bd.addLevelDBData(genesisBlock.height, JSON.stringify(genesisBlock)).then(() => {
-                   console.log("Genesis block generated.");
-               }).catch((err) => { reject(err); });
+               this.addBlock(new Block.Block("First block in the chain - Genesis block")).then((block) => {
+                   console.log("added Genesis block");
+                   console.log(block);
+               })
            }
         });
     }
@@ -41,31 +37,32 @@ class Blockchain {
     }
 
     // Add new block
-    addBlock(block) {
+    async addBlock(block) {
         // Add your code here
+        let height = await this.getBlockHeight();
+
+        // Block height
+        block.height = height;
+
+        if(height > 0) {
+            let previousBlock = await this.getBlock(height - 1);
+
+            // previous block hash
+            block.previousBlockHash = previousBlock.hash;
+        }
+
+        // UTC timestamp
+        block.time = new Date().getTime().toString().slice(0,-3);
+
+        // Block hash with SHA256 using newBlock and converting to a string
+        block.hash = SHA256(JSON.stringify(block)).toString();
+
         let self = this;
         return new Promise(function(resolve, reject) {
-            self.getBlockHeight().then((height) => {
-                // Block height
-                block.height = height;
-
-                // UTC timestamp
-                block.time = new Date().getTime().toString().slice(0,-3);
-
-                self.getBlock(height - 1).then((previousBlock) => {
-                    // previous block hash
-                    block.previousBlockHash = previousBlock.hash;
-
-                    // Block hash with SHA256 using newBlock and converting to a string
-                    block.hash = SHA256(JSON.stringify(block)).toString();
-
-                    // Adding block object to chain
-                    self.bd.addLevelDBData(block.height, JSON.stringify(block)).then(()  => {
-                        resolve(block);
-                    });
-                });
-
-            }).catch((err) => { reject(err); });
+            // Adding block object to chain
+            self.bd.addLevelDBData(block.height, JSON.stringify(block)).then(()  => {
+                resolve(block);
+            });
         });
     }
 
